@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -83,6 +83,7 @@ Use "prepare-data info-stub" to create one.
         print("""No meta.csv.zip found.
 Use "prepare-data convert-citations" on DfR citations.tsv files.
 """)
+        meta = ""
 
     print("Checking topic_scaled.csv...")
     if "topic_scaled.csv" not in fs:
@@ -109,7 +110,7 @@ Use "prepare-data convert-tw" on a topic-word matrix CSV or
                     raise Exception("tw field missing")
 
                 tws = tw["tw"]
-                for t in xrange(len(tws)):
+                for t in range(len(tws)):
                     if "words" not in tws[t]:
                         raise Exception("words missing for topic " + str(t + 1))
                     if "weights" not in tws[t]:
@@ -156,6 +157,8 @@ def convert_citations(fs, matchfile, out):
         with open(f) as meta:
             meta.readline() # header
             for line in meta:
+                if not line.strip():
+                    continue  # Ignore lines that contain only whitespace.
                 fields = [s.replace('"', '""') for s in line.strip().split("\t")]
                 ll.append('"' + fields[0] + '","' + '","'.join(fields[2:9]) +
                         '"')
@@ -196,7 +199,7 @@ def convert_tw(twf, out, vocabf, paramf, n):
     write_tw(alpha, tw, out)
 
 def transform_topic_weights(weights, vocab, n):
-    words = range(len(weights))
+    words = [x for x in range(len(weights))]
     words.sort(key=lambda i: -weights[i])
     return({
         "words": [vocab[w] for w in words[:n]],
@@ -205,7 +208,7 @@ def transform_topic_weights(weights, vocab, n):
 
 def write_tw(alpha, tw, out):
     twj = {
-        "alpha": alpha,
+        "alpha": list(alpha),
         "tw": tw
     }
     with open(out, "w") as f:
@@ -278,7 +281,7 @@ def convert_dt(dtf, out):
         K = len(dt)
         for line in f:
             xs = line.strip().split(",")
-            for t in xrange(K):
+            for t in range(K):
                 dt[t].append(int(xs[t]))
 
     write_dt(transform_dt(dt), out)
@@ -290,7 +293,7 @@ def transform_dt(dt):
     x = []
     p_cur = 0
     for topic_docs in dt:
-        for d in xrange(D):
+        for d in range(D):
             if topic_docs[d] != 0:
                 i.append(d)
                 x.append(topic_docs[d])
@@ -308,8 +311,10 @@ def write_dt(dtj, out):
 def convert_state(statef, twout, dtout, n):
     with gzip.open(statef, 'rb') as f:
         f.readline()
-        alpha = map(float, f.readline().strip().split(" ")[2:])
-        beta = f.readline().strip().split(" ")[2]
+        line = f.readline().decode("utf-8")
+        alpha = map(float, line.strip().split(" ")[2:])
+        line = f.readline().decode("utf-8")
+        beta = line.strip().split(" ")[2]
         print("beta value, not saved in a file: " + beta)
 
         dt = []
@@ -320,6 +325,12 @@ def convert_state(statef, twout, dtout, n):
         vocab = dict()
         K = 0
         for line in f:
+            try:
+                line = re.sub("red hat", "red_hat", line.decode("utf-8"))
+            except:
+                print(line)
+                break
+            #print(line.strip().split())
             doc,source,pos,typeindex,word,topic = line.strip().split()
             doc = int(doc)
             typeindex = int(typeindex)
@@ -345,9 +356,9 @@ def convert_state(statef, twout, dtout, n):
             dt.append(cur_dt)
 
     write_tw(alpha,
-            [transform_topic_weights(tw[t], vocab, n) for t in xrange(K)],
+            [transform_topic_weights(tw[t], vocab, n) for t in range(K)],
             twout)
-    write_dt(transform_dt([[d[t] for d in dt] for t in xrange(K)]), dtout)
+    write_dt(transform_dt([[d[t] for d in dt] for t in range(K)]), dtout)
 
 def help():
     print(__doc__)
@@ -429,4 +440,3 @@ if __name__=="__main__":
             convert_state(rest[0], tw, dt, n)
         else:
             help()
-
